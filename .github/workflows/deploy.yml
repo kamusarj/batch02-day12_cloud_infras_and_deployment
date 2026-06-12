@@ -18,5 +18,6 @@ jobs:
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         run: |
+          railway login --token $RAILWAY_TOKEN
           cd 06-lab-complete
           railway up --environment production
