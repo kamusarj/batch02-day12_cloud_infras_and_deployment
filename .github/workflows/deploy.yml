@@ -1,0 +1,22 @@
+name: Deploy to Railway
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "06-lab-complete/**"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+      - name: Deploy
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          cd 06-lab-complete
+          railway up --service production

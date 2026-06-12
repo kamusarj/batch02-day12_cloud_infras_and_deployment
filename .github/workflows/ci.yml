@@ -1,0 +1,56 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  security-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check for hardcoded secrets
+        run: |
+          if grep -r "sk-\|password123\|hardcoded" app/ deploy.py utils/ 2>/dev/null; then
+            echo "❌ Hardcoded secrets found!"
+            exit 1
+          fi
+          echo "✅ No hardcoded secrets"
+      - name: Verify required files
+        run: |
+          for f in Dockerfile .dockerignore .env.example requirements.txt; do
+            [ -f "$f" ] && echo "✅ $f" || { echo "❌ $f missing"; exit 1; }
+          done
+
+  docker-build:
+    needs: security-check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Docker image
+        run: docker build -t ai-agent-prod .
+      - name: Check image size
+        run: |
+          SIZE=$(docker images ai-agent-prod --format "{{.Size}}")
+          echo "Image size: $SIZE"
+      - name: Quick smoke test
+        run: |
+          docker run -d --name test-agent -p 8000:8000 -e ENVIRONMENT=staging -e AGENT_API_KEY=test-key ai-agent-prod
+          sleep 5
+          curl -sf http://localhost:8000/health || { echo "Health check failed"; exit 1; }
+          curl -sf -X POST http://localhost:8000/ask -H "X-API-Key: test-key" -H "Content-Type: application/json" -d '{"question":"test"}' || { echo "Ask endpoint failed"; exit 1; }
+          echo "✅ Smoke tests passed"
+          docker stop test-agent
+
+  production-readiness:
+    needs: docker-build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run production readiness check
+        run: python check_production_ready.py
