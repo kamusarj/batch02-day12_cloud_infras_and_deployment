@@ -1,6 +1,6 @@
 """
 Production AI Agent — Single file deploy (Railway compatible)
-All dependencies loaded from single Python file.
+v1.0.1 - CI/CD enabled - All dependencies loaded from single Python file.
 """
 import os
 import time
