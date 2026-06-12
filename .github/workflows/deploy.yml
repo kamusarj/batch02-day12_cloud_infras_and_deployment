@@ -19,5 +19,4 @@ jobs:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         run: |
           cd 06-lab-complete
-          railway link -p PRODUCTION
-          railway up --service production
+          railway up --environment production
