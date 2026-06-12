@@ -23,6 +23,7 @@ WORKDIR /app
 COPY --from=builder /opt/packages /usr/local/lib/python3.11/site-packages
 
 COPY deploy.py .
+COPY frontend.html .
 
 RUN chown -R agent:agent /app
 

@@ -13,6 +13,7 @@ from collections import defaultdict, deque
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Depends, Request, Response
+from fastapi.responses import HTMLResponse
 from fastapi.security.api_key import APIKeyHeader
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -163,7 +164,20 @@ class AskResponse(BaseModel):
 # ─── Endpoints ─────────────────────────────────────
 @app.get("/")
 def root():
-    return {"app": settings.app_name, "version": settings.app_version, "endpoints": {"ask": "POST /ask (requires X-API-Key)", "health": "GET /health", "ready": "GET /ready"}}
+    return {"app": settings.app_name, "version": settings.app_version, "endpoints": {"ask": "POST /ask (requires X-API-Key)", "health": "GET /health", "ready": "GET /ready", "chat": "GET /chat (frontend)"}}
+
+@app.get("/chat", response_class=HTMLResponse)
+def chat_frontend():
+    """Serve frontend chat UI."""
+    html_path = os.path.join(os.path.dirname(__file__), "frontend.html")
+    try:
+        with open(html_path, "r", encoding="utf-8") as f:
+            html = f.read()
+        # Update endpoint URL in HTML to match current deployment
+        html = html.replace("https://agile-amazement-production-8b53.up.railway.app/ask", f"https://{os.getenv('RAILWAY_PUBLIC_DOMAIN', 'localhost:8000')}/ask")
+        return HTMLResponse(content=html)
+    except FileNotFoundError:
+        return HTMLResponse(content="<h1>Frontend not found</h1>", status_code=404)
 
 @app.post("/ask", response_model=AskResponse)
 async def ask_agent(body: AskRequest, _key: str = Depends(verify_api_key)):
