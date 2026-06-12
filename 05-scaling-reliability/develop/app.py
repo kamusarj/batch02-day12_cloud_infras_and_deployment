@@ -53,7 +53,7 @@ async def lifespan(app: FastAPI):
 
     # ── Shutdown ──
     _is_ready = False
-    logger.info("🔄 Graceful shutdown initiated...")
+    logger.info("🔄 Graceful shutdown initiated...")    
 
     # Chờ request đang xử lý hoàn thành (tối đa 30 giây)
     timeout = 30

@@ -1,0 +1,62 @@
+name: Part 4 - API Security Tests
+
+on:
+  push:
+    branches: [main]
+    paths: ["04-api-gateway/**"]
+  pull_request:
+    branches: [main]
+    paths: ["04-api-gateway/**"]
+  workflow_dispatch:
+
+jobs:
+  test-api-key-auth:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - run: pip install fastapi uvicorn pydantic pyjwt python-dotenv redis
+      - name: Start API & test auth
+        run: |
+          cd 04-api-gateway/develop
+          AGENT_API_KEY=test-key-123 PORT=9001 python app.py &
+          sleep 3
+          echo "=== Test: no key → 401 ==="
+          CODE=$(curl -s -o /dev/null -w "%{http_code}" -X POST "http://localhost:9001/ask?question=test")
+          [ "$CODE" != "401" ] && echo "FAIL: expected 401 got $CODE" && exit 1 || echo "PASS: 401 without key"
+          echo "=== Test: valid key → 200 ==="
+          CODE=$(curl -s -o /dev/null -w "%{http_code}" -X POST "http://localhost:9001/ask?question=test" -H "X-API-Key: test-key-123")
+          [ "$CODE" != "200" ] && echo "FAIL: expected 200 got $CODE" && exit 1 || echo "PASS: 200 with valid key"
+          echo "=== Test: wrong key → 403 ==="
+          CODE=$(curl -s -o /dev/null -w "%{http_code}" -X POST "http://localhost:9001/ask?question=test" -H "X-API-Key: wrong-key")
+          [ "$CODE" != "403" ] && echo "FAIL: expected 403 got $CODE" && exit 1 || echo "PASS: 403 with wrong key"
+          echo "✅ API Key Auth: ALL PASSED"
+          kill %1 2>/dev/null
+
+  test-jwt-rate-limit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - run: pip install -q fastapi uvicorn pydantic pyjwt python-dotenv redis
+      - name: Start JWT app & test rate limit
+        run: |
+          cd 04-api-gateway/production
+          PORT=9002 python app.py &
+          sleep 3
+          echo "=== Test: login → JWT ==="
+          TOKEN=$(curl -s -X POST http://localhost:9002/auth/token -H "Content-Type: application/json" -d '{"username":"student","password":"demo123"}' | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
+          [ -z "$TOKEN" ] && echo "FAIL: no token" && exit 1 || echo "PASS: token obtained"
+          echo "=== Test: ask with JWT → 200 ==="
+          CODE=$(curl -s -o /dev/null -w "%{http_code}" -X POST http://localhost:9002/ask -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{"question":"test"}')
+          [ "$CODE" != "200" ] && echo "FAIL: got $CODE" && exit 1 || echo "PASS: 200 with JWT"
+          echo "=== Test: rate limit → 429 after 10 ==="
+          LAST=0
+          for i in $(seq 1 12); do
+            LAST=$(curl -s -o /dev/null -w "%{http_code}" -X POST http://localhost:9002/ask -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d "{\"question\":\"test$i\"}")
+          done
+          [ "$LAST" != "429" ] && echo "FAIL: expected 429 got $LAST" && exit 1 || echo "PASS: 429 after exceeding limit"
+          echo "✅ JWT + Rate Limit: ALL PASSED"
+          kill %1 2>/dev/null

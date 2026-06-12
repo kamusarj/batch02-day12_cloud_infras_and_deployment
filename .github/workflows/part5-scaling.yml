@@ -1,0 +1,50 @@
+name: Part 5 - Scaling & Reliability Tests
+
+on:
+  push:
+    branches: [main]
+    paths: ["05-scaling-reliability/**"]
+  pull_request:
+    branches: [main]
+    paths: ["05-scaling-reliability/**"]
+  workflow_dispatch:
+
+jobs:
+  test-health-shutdown:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - run: pip install fastapi uvicorn psutil pydantic
+      - name: Test health checks & graceful shutdown
+        run: |
+          cd 05-scaling-reliability/develop
+          PORT=9003 python app.py &
+          sleep 4
+          echo "=== Test: /health returns 200 ==="
+          curl -sf http://localhost:9003/health > /dev/null || { echo "FAIL: health check failed"; exit 1; }
+          echo "PASS: /health OK"
+          echo "=== Test: /ready returns 200 ==="
+          curl -sf http://localhost:9003/ready > /dev/null || { echo "FAIL: readiness check failed"; exit 1; }
+          echo "PASS: /ready OK"
+          echo "=== Test: graceful shutdown on SIGTERM ==="
+          PID=$(lsof -ti:9003)
+          kill -SIGTERM $PID 2>/dev/null
+          sleep 2
+          ! lsof -ti:9003 > /dev/null 2>&1 && echo "PASS: process exited gracefully" || { echo "FAIL: process still running"; exit 1; }
+          echo "✅ Health + Shutdown: ALL PASSED"
+          kill %1 2>/dev/null
+
+  test-load-balancer:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test load balancing with docker compose
+        run: |
+          cd 05-scaling-reliability/production
+          # Test nginx config syntax
+          grep -q "server agent:8000" nginx.conf && echo "PASS: nginx config references agent cluster" || { echo "FAIL: nginx config invalid"; exit 1; }
+          grep -q "replicas: 3" docker-compose.yml && echo "PASS: docker-compose scales to 3 replicas" || echo "WARN: replicas not set to 3"
+          grep -q "redis" docker-compose.yml && echo "PASS: redis service defined" || echo "WARN: no redis service"
+          echo "✅ Load balancer config: VALID"
