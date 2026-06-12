@@ -13,13 +13,15 @@ jobs:
       - uses: actions/checkout@v4
       - name: Check for hardcoded secrets
         run: |
-          if grep -r "sk-\|password123\|hardcoded" app/ deploy.py utils/ 2>/dev/null; then
+          cd 06-lab-complete
+          if grep -r "sk-\|password123\|hardcoded" deploy.py utils/ 2>/dev/null; then
             echo "❌ Hardcoded secrets found!"
             exit 1
           fi
           echo "✅ No hardcoded secrets"
       - name: Verify required files
         run: |
+          cd 06-lab-complete
           for f in Dockerfile .dockerignore .env.example requirements.txt; do
             [ -f "$f" ] && echo "✅ $f" || { echo "❌ $f missing"; exit 1; }
           done
@@ -30,7 +32,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build Docker image
-        run: docker build -t ai-agent-prod .
+        run: docker build -t ai-agent-prod 06-lab-complete/
       - name: Check image size
         run: |
           SIZE=$(docker images ai-agent-prod --format "{{.Size}}")
@@ -53,4 +55,4 @@ jobs:
         with:
           python-version: "3.11"
       - name: Run production readiness check
-        run: python check_production_ready.py
+        run: python 06-lab-complete/check_production_ready.py
