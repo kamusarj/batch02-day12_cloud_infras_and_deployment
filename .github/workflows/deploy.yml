@@ -19,7 +19,7 @@ jobs:
         run: |
           sleep 60
           for i in 1 2 3 4 5; do
-            CODE=$(curl -s -o /dev/null -w "%{http_code}" https://agile-amazement-production-8b53.up.railway.app/health)
+            CODE=$(curl -s -o /dev/null -w "%{http_code}" https://ai-agent-lab-production.up.railway.app/health)
             echo "Attempt $i: HTTP $CODE"
             [ "$CODE" = "200" ] && echo "✅ Deploy OK!" && exit 0
             sleep 30
