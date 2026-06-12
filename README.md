@@ -4,6 +4,10 @@
 > Repository thực hành đi kèm bài giảng Day 12.  
 > Mỗi phần có ví dụ **cơ bản** (hiểu concept) và **chuyên sâu** (production-ready).
 
+## Live Demo
+
+**Research Agent:** https://research-agent-production-e0a8.up.railway.app
+
 ---
 
 ## Cấu Trúc Project
