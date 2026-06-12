@@ -1,23 +1,28 @@
 name: Deploy to Railway
 
+# Auto-deploy via Railway GitHub App (không cần token)
+# Setup: https://railway.app/project/be889e5a-7de6-4d09-95bc-66713d3e8247/settings → GitHub → Connect repo
+#
+# Workflow này chỉ verify deployment status sau khi Railway tự deploy
+
 on:
   push:
     branches: [main]
-    paths:
-      - "06-lab-complete/**"
+    paths: ["06-lab-complete/**"]
   workflow_dispatch:
 
 jobs:
-  deploy:
+  verify-deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Install Railway CLI
-        run: npm install -g @railway/cli
-      - name: Deploy
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      - name: Verify Railway deploy URL
         run: |
-          railway login --token $RAILWAY_TOKEN
-          cd 06-lab-complete
-          railway up --environment production
+          sleep 60
+          for i in 1 2 3 4 5; do
+            CODE=$(curl -s -o /dev/null -w "%{http_code}" https://agile-amazement-production-8b53.up.railway.app/health)
+            echo "Attempt $i: HTTP $CODE"
+            [ "$CODE" = "200" ] && echo "✅ Deploy OK!" && exit 0
+            sleep 30
+          done
+          echo "❌ Deploy failed after 5 attempts"
+          exit 1
